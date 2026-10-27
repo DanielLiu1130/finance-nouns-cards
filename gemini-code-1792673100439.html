@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>財務報表與現金流量互動學習庫 (Pro Dark)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                        cardborder: '#334155',
+                        accent: '#38bdf8',
+                        star: '#fbbf24',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- 頂部導航與功能工具列 -->
+    <header class="bg-cardbg border-b border-cardborder py-5 px-4 sticky top-0 z-50 shadow-md">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 font-semibold border border-sky-500/30">Ross Corporate Finance Ch2</span>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">財務報表與現金流學習庫</h1>
+                </div>
+                <p class="text-slate-400 mt-1 text-xs">單詞卡背誦 • 本地存檔 • 跨裝置匯出入 • 財務現金流驗證</p>
+            </div>
+            
+            <!-- 視圖切換按鈕組 -->
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="switchView('flashcard')" id="btn-flashcard" class="px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold bg-sky-500 text-white shadow-lg shadow-sky-500/20 transition flex items-center gap-1.5">
+                    <span>🗂️</span> 單詞卡
+                </button>
+                <button onclick="switchView('list')" id="btn-list" class="px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardborder transition flex items-center gap-1.5">
+                    <span>📑</span> 條列清單
+                </button>
+                <button onclick="switchView('calculator')" id="btn-calculator" class="px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-cardborder transition flex items-center gap-1.5">
+                    <span>🧮</span> 現金流試算
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+
+        <!-- ================= 模式 1: 背誦單詞卡 (Flashcards) ================= -->
+        <section id="flashcardView" class="max-w-2xl mx-auto flex flex-col items-center">
+            
+            <!-- 星號管理輔助選單 -->
+            <div class="w-full flex flex-wrap justify-between items-center gap-2 mb-4 bg-slate-900/60 p-3 rounded-xl border border-cardborder text-xs">
+                <div class="flex items-center gap-2">
+                    <span id="fcCounter" class="font-mono text-slate-300">1 / 18</span>
+                    <button onclick="toggleStarFilter()" id="starFilterBtn" class="px-2.5 py-1 rounded-md border border-cardborder text-slate-400 hover:border-amber-400 hover:text-amber-400 transition flex items-center gap-1">
+                        <span>★</span> 只看星號 (<span id="starredCount">0</span>)
+                    </button>
+                </div>
+                
+                <div class="flex items-center gap-1.5">
+                    <button onclick="exportStars()" title="匯出成備份檔" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-cardborder text-slate-300 transition flex items-center gap-1">
+                        📥 匯出
+                    </button>
+                    <label title="從檔案匯入星號" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-cardborder text-slate-300 transition cursor-pointer flex items-center gap-1">
+                        📤 匯入
+                        <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importStars(event)">
+                    </label>
+                    <button onclick="clearAllStars()" title="清除所有星號標記" class="px-2 py-1 rounded bg-slate-800 hover:bg-rose-900/40 hover:text-rose-300 border border-cardborder text-slate-400 transition">
+                        🗑️ 清空
+                    </button>
+                </div>
+            </div>
+
+            <!-- 卡片本體 (3D Flip) -->
+            <div class="w-full h-96 perspective-1000 cursor-pointer" onclick="flipCard()">
+                <div id="flashcardInner" class="relative w-full h-full transform-style-3d transition-transform duration-500">
+                    
+                    <!-- 正面 -->
+                    <div class="absolute w-full h-full backface-hidden bg-cardbg border-2 border-cardborder hover:border-sky-500/60 rounded-2xl p-8 flex flex-col justify-between shadow-2xl transition">
+                        <div class="flex justify-between items-start">
+                            <span id="fcStage" class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-800 text-sky-400 border border-slate-700">階段</span>
+                            <button onclick="toggleCurrentStar(event)" class="text-2xl text-slate-600 hover:text-star transition" id="fcStarBtn">★</button>
+                        </div>
+                        <div class="text-center my-auto">
+                            <h2 id="fcTerm" class="text-4xl md:text-5xl font-black text-white tracking-wider mb-3">OCF</h2>
+                            <p id="fcFull" class="text-slate-400 text-sm md:text-base font-medium">Operating Cash Flow (營業現金流量)</p>
+                        </div>
+                        <div class="text-center text-xs text-slate-500 font-mono">
+                            [ 點擊或按空白鍵翻轉 ↺ ]
+                        </div>
+                    </div>
+
+                    <!-- 背面 -->
+                    <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-slate-900 border-2 border-sky-500/80 rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-2xl overflow-y-auto">
+                        <div class="flex justify-between items-center pb-2 border-b border-cardborder">
+                            <span id="fcBackTerm" class="text-base md:text-lg font-bold text-sky-400 font-mono">OCF</span>
+                            <span class="text-xs text-slate-400 font-mono">核心定義與計算</span>
+                        </div>
+                        
+                        <!-- 公式強調區 -->
+                        <div class="my-3">
+                            <span class="text-xs font-semibold text-slate-400 block mb-1">📐 計算公式：</span>
+                            <div id="fcFormula" class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-sky-300 font-mono text-sm md:text-base font-bold text-center tracking-wide overflow-x-auto">
+                                OCF = EBIT + 折舊 - 所得稅
+                            </div>
+                        </div>
+
+                        <!-- 定義說明 -->
+                        <div class="mb-auto">
+                            <span class="text-xs font-semibold text-slate-400 block mb-1">📖 觀念解析：</span>
+                            <p id="fcDesc" class="text-slate-300 text-xs md:text-sm leading-relaxed">
+                                來自公司本業營運活動所產生的現金流入，反映核心業務的現金創造能力，尚未扣除資本支出與營運資金再投資需求。
+                            </p>
+                        </div>
+
+                        <div class="text-center text-xs text-slate-500 font-mono pt-2 border-t border-cardborder">
+                            [ 點擊翻回正面 ↺ ]
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 控制鍵導航 -->
+            <div class="flex items-center gap-4 mt-6">
+                <button onclick="prevCard()" class="px-5 py-2.5 rounded-xl bg-cardbg hover:bg-slate-700 border border-cardborder text-slate-200 font-semibold transition text-sm flex items-center gap-1.5">
+                    <span>←</span> 上一張
+                </button>
+                <button onclick="flipCard()" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cardborder text-sky-400 font-semibold transition text-sm">
+                    翻轉卡片
+                </button>
+                <button onclick="nextCard()" class="px-5 py-2.5 rounded-xl bg-cardbg hover:bg-slate-700 border border-cardborder text-slate-200 font-semibold transition text-sm flex items-center gap-1.5">
+                    下一張 <span>→</span>
+                </button>
+            </div>
+            <div class="text-slate-500 text-xs mt-3 font-mono">鍵盤快捷鍵：[空白鍵] 翻面，[← / →] 上下張</div>
+        </section>
+
+
+        <!-- ================= 模式 2: 條列清單 (List View) ================= -->
+        <section id="listView" class="hidden">
+            <div class="flex flex-col md:flex-row gap-4 mb-6 justify-between items-center">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="filterStage('all')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-sky-500 text-white transition">全部</button>
+                    <button onclick="filterStage('stage1')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-700 border border-cardborder transition">1. 基礎原則</button>
+                    <button onclick="filterStage('stage2')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-700 border border-cardborder transition">2. 獲利階層</button>
+                    <button onclick="filterStage('stage3')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-700 border border-cardborder transition">3. 營運投資</button>
+                    <button onclick="filterStage('stage4')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-700 border border-cardborder transition">4. 財務現金流</button>
+                    <button onclick="filterStage('stage5')" class="stage-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-700 border border-cardborder transition">5. 會計現金流</button>
+                </div>
+                <input type="text" id="listSearch" placeholder="搜尋專有名詞或公式..." 
+                       class="w-full md:w-64 px-3 py-2 rounded-lg bg-cardbg border border-cardborder text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-sky-500"
+                       onkeyup="renderListCards()">
+            </div>
+
+            <!-- 卡片網格 -->
+            <div id="listContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 動態注入 -->
+            </div>
+        </section>
+
+
+        <!-- ================= 模式 3: 現金流試算器 (Calculator) ================= -->
+        <section id="calculatorView" class="hidden bg-cardbg border border-cardborder p-6 md:p-8 rounded-2xl shadow-xl">
+            <div class="mb-6">
+                <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    <span>🧮</span> 現金流基本恆等式動態試算器
+                </h2>
+                <p class="text-slate-400 text-xs md:text-sm mt-1">
+                    驗證公司理財核心法則：來自資產的現金流量，必然等於支付給債權人與股東的現金總和 [CF(A) ≡ CF(B) + CF(S)]。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 第一欄: OCF 計算 -->
+                <div class="bg-slate-900/60 p-5 rounded-xl border border-cardborder flex flex-col justify-between">
+                    <h3 class="font-bold text-sky-400 text-sm border-b border-cardborder pb-2 mb-3">1. 營業現金流量 (OCF)</h3>
+                    <div class="space-y-3 text-xs md:text-sm">
+                        <div>
+                            <label class="text-slate-400">營業利益 (EBIT)</label>
+                            <input type="number" id="calcEBIT" value="159" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-2 text-white font-mono" oninput="runCalculator()">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">加：折舊與攤銷 (Depreciation)</label>
+                            <input type="number" id="calcDep" value="90" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-2 text-white font-mono" oninput="runCalculator()">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">減：實際所得稅 (Taxes)</label>
+                            <input type="number" id="calcTax" value="15" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-2 text-white font-mono" oninput="runCalculator()">
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-cardborder flex justify-between items-center">
+                        <span class="text-xs font-semibold text-slate-300">OCF 成果：</span>
+                        <span id="resOCF" class="text-lg font-mono font-bold text-sky-400">$234</span>
+                    </div>
+                </div>
+
+                <!-- 第二欄: CFFA 計算 -->
+                <div class="bg-slate-900/60 p-5 rounded-xl border border-cardborder flex flex-col justify-between">
+                    <h3 class="font-bold text-sky-400 text-sm border-b border-cardborder pb-2 mb-3">2. 投資與資本再投入 (CFFA)</h3>
+                    <div class="space-y-3 text-xs md:text-sm">
+                        <div>
+                            <label class="text-slate-400">減：淨資本支出 (CAPEX)</label>
+                            <input type="number" id="calcCapex" value="173" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-2 text-white font-mono" oninput="runCalculator()">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">減：營運資金增加 (ΔNWC)</label>
+                            <input type="number" id="calcNWC" value="19" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-2 text-white font-mono" oninput="runCalculator()">
+                        </div>
+                        <div class="text-xs text-slate-500 leading-relaxed pt-2">
+                            公式：CFFA = OCF - CAPEX - ΔNWC<br>
+                            扣除投資後真正可分配之現金 (FCF)。
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-cardborder flex justify-between items-center">
+                        <span class="text-xs font-semibold text-slate-300">來自資產的現金 (CFFA)：</span>
+                        <span id="resCFFA" class="text-xl font-mono font-bold text-emerald-400">$42</span>
+                    </div>
+                </div>
+
+                <!-- 第三欄: CFC + CFS -->
+                <div class="bg-slate-900/60 p-5 rounded-xl border border-cardborder flex flex-col justify-between">
+                    <h3 class="font-bold text-sky-400 text-sm border-b border-cardborder pb-2 mb-3">3. 出資人分配 (CFC + CFS)</h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-400">支付利息</label>
+                                <input type="number" id="calcInt" value="49" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono" oninput="runCalculator()">
+                            </div>
+                            <div>
+                                <label class="text-slate-400">淨新增借款</label>
+                                <input type="number" id="calcDebt" value="13" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono" oninput="runCalculator()">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-400">發放股利+回購</label>
+                                <input type="number" id="calcDiv" value="49" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono" oninput="runCalculator()">
+                            </div>
+                            <div>
+                                <label class="text-slate-400">新股募資</label>
+                                <input type="number" id="calcEq" value="43" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono" oninput="runCalculator()">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-cardborder space-y-1 text-xs">
+                        <div class="flex justify-between text-slate-400">
+                            <span>給債權人 (CFC):</span>
+                            <span id="resCFC" class="font-mono text-slate-200">$36</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>給股東 (CFS):</span>
+                            <span id="resCFS" class="font-mono text-slate-200">$6</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-1 border-t border-slate-800 text-sm">
+                            <span class="font-semibold text-slate-200">出資者合計 (CFC+CFS)：</span>
+                            <span id="resInvestors" class="text-xl font-mono font-bold text-emerald-400">$42</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 驗證橫幅 -->
+            <div id="statusBanner" class="mt-6 p-4 rounded-xl flex items-center justify-between border bg-emerald-950/40 border-emerald-500/50">
+                <span id="statusText" class="font-bold text-emerald-400 text-sm">✅ 基本恆等式成立：CFFA ($42) = CFC + CFS ($42)</span>
+                <span class="text-xs text-emerald-500 font-mono">No magic in finance!</span>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-cardborder py-4 text-center text-xs text-slate-500 mt-auto">
+        公司理財核心重點筆記 • Chapter 2
+    </footer>
+
+    <!-- JavaScript 核心邏輯 -->
+    <script>
+        const termsDatabase = [
+            {
+                id: 1,
+                term: "GAAP",
+                full: "Generally Accepted Accounting Principles",
+                zh: "一般公認會計原則",
+                stage: "stage1",
+                stageName: "階段一：基礎原則",
+                formula: "資產 (Assets) ≡ 負債 (Liabilities) + 股東權益 (Stockholders' Equity)",
+                desc: "一套公認的財務報導規範，規範收入與費用的認列時點，使跨公司、跨期報表具備一致性與客觀性。"
+            },
+            {
+                id: 2,
+                term: "Matching Principle",
+                full: "Matching Principle of GAAP",
+                zh: "配合原則",
+                stage: "stage1",
+                stageName: "階段一：基礎原則",
+                formula: "收入 - 產生該收入所付出的費用 ≡ 當期會計淨利",
+                desc: "要求費用必須與其產生的收入在同一期間認列（權責發生制），即使現金尚未實際收付，亦須入帳。"
+            },
+            {
+                id: 3,
+                term: "Noncash Items",
+                full: "Noncash Items (Depreciation & Deferred Taxes)",
+                zh: "非現金項目",
+                stage: "stage1",
+                stageName: "階段一：基礎原則",
+                formula: "淨利 (Net Income) ≠ 現金流量 (Cash Flow)",
+                desc: "在損益表中已作為費用扣減（減少淨利），但實際上公司從未為此開出支票的項目（如折舊、遞延所得稅）。"
+            },
+            {
+                id: 4,
+                term: "Book Value vs. Market Value",
+                full: "Book Value vs. Market Value",
+                zh: "帳面價值 vs. 市場價值",
+                stage: "stage1",
+                stageName: "階段一：基礎原則",
+                formula: "帳面價值 = 歷史取得成本 - 累計折舊",
+                desc: "帳面價值代表會計歷史成本，較保守；市場價值是資產目前在公開市場實際買賣成交的價格。財務決策必須使用市場價值。"
+            },
+            {
+                id: 5,
+                term: "Average vs. Marginal Tax Rate",
+                full: "Average vs. Marginal Tax Rate",
+                zh: "平均稅率 vs. 邊際稅率",
+                stage: "stage1",
+                stageName: "階段一：基礎原則",
+                formula: "平均稅率 = 總稅額 / 課稅所得 ； 邊際稅率 = 每多賺 $1 需繳納的稅率",
+                desc: "平均稅率反映總體稅負比重；而在進行新專案收益分析或現金流增量決策時，必須採用邊際稅率評估。"
+            },
+            {
+                id: 6,
+                term: "EBIT",
+                full: "Earnings Before Interest and Taxes",
+                zh: "稅前息前營業利益",
+                stage: "stage2",
+                stageName: "階段二：獲利階層",
+                formula: "EBIT = 營業收入 - 營業成本 (COGS) - 營業費用 (SG&A)",
+                desc: "反映企業『本業』核心生產與銷售的經營獲利能力，排除了不同融資政策（利息負擔）與國家稅制的干擾。"
+            },
+            {
+                id: 7,
+                term: "EBITDA",
+                full: "Earnings Before Interest, Taxes, Depreciation & Amortization",
+                zh: "稅前息前折舊攤銷前淨利",
+                stage: "stage2",
+                stageName: "階段二：獲利階層",
+                formula: "EBITDA = EBIT + 折舊費用 (Depreciation) + 攤銷費用 (Amortization)",
+                desc: "加回非現金費用，反映本業營運產生毛現金流量的能力，經常用於跨公司倍數估值（如 EV/EBITDA）與併購分析。"
+            },
+            {
+                id: 8,
+                term: "Net Income",
+                full: "Net Income (The Bottom Line)",
+                zh: "本期淨利 / 稅後盈餘",
+                stage: "stage2",
+                stageName: "階段二：獲利階層",
+                formula: "Net Income = EBIT - 利息費用 - 所得稅費用",
+                desc: "損益表的底線，扣除本業與非本業全部支出後，最終屬於股東的淨利潤，可作為發放股利或保留盈餘積累之用。"
+            },
+            {
+                id: 9,
+                term: "NWC",
+                full: "Net Working Capital",
+                zh: "淨營運資金",
+                stage: "stage3",
+                stageName: "階段三：營運與投資",
+                formula: "NWC = 流動資產 (Current Assets) - 流動負債 (Current Liabilities)",
+                desc: "衡量企業日常營運的短期安全緩衝資金與償債能力。通常隨著公司營收規模擴大，所需的營運資金也會相應增長。"
+            },
+            {
+                id: 10,
+                term: "ΔNWC",
+                full: "Addition to Net Working Capital",
+                zh: "淨營運資金變動額",
+                stage: "stage3",
+                stageName: "階段三：營運與投資",
+                formula: "ΔNWC = 期末 NWC - 期初 NWC",
+                desc: "為維持短期流動資產（應收帳款、存貨）周轉所需投入的淨現金。當 ΔNWC > 0 時，代表現金流出，屬再投資支出。"
+            },
+            {
+                id: 11,
+                term: "CAPEX (NCS)",
+                full: "Capital Spending / Net Capital Spending",
+                zh: "資本支出 / 淨資本支出",
+                stage: "stage3",
+                stageName: "階段三：營運與投資",
+                formula: "CAPEX = 取得固定資產支出 - 處分固定資產收入",
+                desc: "企業投入於廠房、機器等固定資產的淨現金支出，用於維持現有生產力或進行業務擴張。"
+            },
+            {
+                id: 12,
+                term: "OCF",
+                full: "Operating Cash Flow",
+                zh: "營業現金流量",
+                stage: "stage4",
+                stageName: "階段四：財務現金流",
+                formula: "OCF = EBIT + 折舊與攤銷 - 所得稅 (Taxes)",
+                desc: "本業營運所產生的實際現金，已如實支付營運稅賦，但尚未扣除固定資產擴建 (CAPEX) 與營運資金 (ΔNWC) 的投資需求。"
+            },
+            {
+                id: 13,
+                term: "FCF",
+                full: "Free Cash Flow",
+                zh: "自由現金流量",
+                stage: "stage4",
+                stageName: "階段四：財務現金流",
+                formula: "FCF = OCF - 淨資本支出 (CAPEX) - 營運資金變動 (ΔNWC)",
+                desc: "扣除維持與擴充業務所需的一切必要投資後，公司真正可以『自由』分配給所有投資人（債權人與股東）的淨現金。"
+            },
+            {
+                id: 14,
+                term: "CFFA / CF(A)",
+                full: "Cash Flow from Assets",
+                zh: "來自資產的現金流量",
+                stage: "stage4",
+                stageName: "階段四：財務現金流",
+                formula: "CFFA ≡ CFC + CFS ； CFFA = OCF - CAPEX - ΔNWC",
+                desc: "公司資產營運產生的現金總和。在財務學中沒有魔法，資產產生的現金 flow 必定等於付給債權人 (CFC) 與股東 (CFS) 的總和。"
+            },
+            {
+                id: 15,
+                term: "CFC / CF(B)",
+                full: "Cash Flow to Creditors / Bondholders",
+                zh: "流向債權人的現金流量",
+                stage: "stage4",
+                stageName: "階段四：財務現金流",
+                formula: "CFC = 利息支付 - 淨新增長期借款 (新舉債 - 償還本金)",
+                desc: "支付給債權人（銀行或債券投資人）的淨現金流，包含履行契約所支付的利息與本金，並扣除當期新增的借款流入。"
+            },
+            {
+                id: 16,
+                term: "CFS / CF(S)",
+                full: "Cash Flow to Stockholders",
+                zh: "流向股東的現金流量",
+                stage: "stage4",
+                stageName: "階段四：財務現金流",
+                formula: "CFS = 股利發放 + 買回庫藏股 - 新發行股票籌資",
+                desc: "最終回饋給股東的淨現金分配，包含發放現金股利與庫藏股購回，並扣除現金增資募集的股權款項。"
+            },
+            {
+                id: 17,
+                term: "CFO",
+                full: "Cash Flow from Operating Activities",
+                zh: "營業活動現金流量 (會計報表)",
+                stage: "stage5",
+                stageName: "階段五：會計現金流",
+                formula: "CFO = 稅後淨利 + 非現金費用 ± 營運資產負債淨變動",
+                desc: "會計正式現金流量表第一區塊。從會計淨利出發，加回折舊並調整應收、存貨等營運資金變動後的實際營業現金。"
+            },
+            {
+                id: 18,
+                term: "CFI & CFF",
+                full: "Investing & Financing Cash Flows",
+                zh: "投資活動與籌資活動現金流",
+                stage: "stage5",
+                stageName: "階段五：會計現金流",
+                formula: "總現金變動額 = CFO + CFI + CFF",
+                desc: "CFI 記錄買賣廠房設備與投資證券之流向；CFF 記錄舉債借款、發股、還款與配息之現金變動。三大區塊合計等於資產負債表上現金的淨增減。"
+            }
+        ];
+
+        // ================= 持久化儲存 (LocalStorage) =================
+        const STORAGE_KEY = 'ross_finance_starred_ids_v1';
+
+        function loadStarredFromStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? new Set(JSON.parse(data)) : new Set();
+            } catch (err) {
+                console.error("無法讀取 LocalStorage:", err);
+                return new Set();
+            }
+        }
+
+        function saveStarredToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(starredIds)));
+            } catch (err) {
+                console.error("無法寫入 LocalStorage:", err);
+            }
+        }
+
+        let starredIds = loadStarredFromStorage();
+        let currentCardIndex = 0;
+        let isCardFlipped = false;
+        let isStarOnlyFilter = false;
+        let activeListStage = 'all';
+
+        // 取得有效清單
+        function getActiveFlashcards() {
+            if (isStarOnlyFilter) {
+                return termsDatabase.filter(t => starredIds.has(t.id));
+            }
+            return termsDatabase;
+        }
+
+        // 單詞卡介面更新
+        function updateFlashcardUI() {
+            const cards = getActiveFlashcards();
+            const counter = document.getElementById('fcCounter');
+            const inner = document.getElementById('flashcardInner');
+            const starBtn = document.getElementById('fcStarBtn');
+
+            if (isCardFlipped) {
+                inner.classList.remove('rotate-y-180');
+                isCardFlipped = false;
+            }
+
+            if (cards.length === 0) {
+                document.getElementById('fcTerm').innerText = "無星號單詞";
+                document.getElementById('fcFull').innerText = "目前沒有標記星號的單詞項目";
+                document.getElementById('fcStage').innerText = "無資料";
+                document.getElementById('fcFormula').innerText = "—";
+                document.getElementById('fcDesc').innerText = "請取消『只看星號』篩選，或在單詞卡/清單點擊 ★ 標記重點名詞。";
+                counter.innerText = "0 / 0";
+                starBtn.innerText = "☆";
+                starBtn.className = "text-2xl text-slate-600";
+                document.getElementById('starredCount').innerText = starredIds.size;
+                return;
+            }
+
+            if (currentCardIndex >= cards.length) {
+                currentCardIndex = 0;
+            }
+
+            const current = cards[currentCardIndex];
+            counter.innerText = `${currentCardIndex + 1} / ${cards.length}`;
+            
+            document.getElementById('fcStage').innerText = current.stageName;
+            document.getElementById('fcTerm').innerText = current.term;
+            document.getElementById('fcFull').innerText = `${current.full} (${current.zh})`;
+
+            document.getElementById('fcBackTerm').innerText = `${current.term} - ${current.zh}`;
+            document.getElementById('fcFormula').innerText = current.formula;
+            document.getElementById('fcDesc').innerText = current.desc;
+
+            if (starredIds.has(current.id)) {
+                starBtn.innerText = "★";
+                starBtn.className = "text-2xl text-star hover:text-amber-300 transition";
+            } else {
+                starBtn.innerText = "☆";
+                starBtn.className = "text-2xl text-slate-600 hover:text-star transition";
+            }
+
+            document.getElementById('starredCount').innerText = starredIds.size;
+        }
+
+        function flipCard() {
+            const cards = getActiveFlashcards();
+            if (cards.length === 0) return;
+            isCardFlipped = !isCardFlipped;
+            const inner = document.getElementById('flashcardInner');
+            if (isCardFlipped) {
+                inner.classList.add('rotate-y-180');
+            } else {
+                inner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function nextCard() {
+            const cards = getActiveFlashcards();
+            if (cards.length === 0) return;
+            currentCardIndex = (currentCardIndex + 1) % cards.length;
+            updateFlashcardUI();
+        }
+
+        function prevCard() {
+            const cards = getActiveFlashcards();
+            if (cards.length === 0) return;
+            currentCardIndex = (currentCardIndex - 1 + cards.length) % cards.length;
+            updateFlashcardUI();
+        }
+
+        function toggleCurrentStar(e) {
+            e.stopPropagation();
+            const cards = getActiveFlashcards();
+            if (cards.length === 0) return;
+            const current = cards[currentCardIndex];
+            
+            if (starredIds.has(current.id)) {
+                starredIds.delete(current.id);
+            } else {
+                starredIds.add(current.id);
+            }
+            saveStarredToStorage();
+            updateFlashcardUI();
+            renderListCards();
+        }
+
+        function toggleStarFilter() {
+            isStarOnlyFilter = !isStarOnlyFilter;
+            const btn = document.getElementById('starFilterBtn');
+            currentCardIndex = 0;
+
+            if (isStarOnlyFilter) {
+                btn.className = "px-2.5 py-1 rounded-md border border-amber-400 bg-amber-500/20 text-amber-400 font-semibold transition flex items-center gap-1";
+            } else {
+                btn.className = "px-2.5 py-1 rounded-md border border-cardborder text-slate-400 hover:border-amber-400 hover:text-amber-400 transition flex items-center gap-1";
+            }
+            updateFlashcardUI();
+        }
+
+        // ================= 匯出 / 匯入 / 清除 =================
+        function exportStars() {
+            if (starredIds.size === 0) {
+                alert("目前尚無任何標記星號的單詞可供匯出。");
+                return;
+            }
+            const dataToExport = {
+                version: 1,
+                date: new Date().toISOString(),
+                starredIds: Array.from(starredIds)
+            };
+            const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `finance_starred_backup_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importStars(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && Array.isArray(parsed.starredIds)) {
+                        starredIds = new Set(parsed.starredIds);
+                        saveStarredToStorage();
+                        updateFlashcardUI();
+                        renderListCards();
+                        alert(`成功匯入 ${starredIds.size} 個標記單詞！`);
+                    } else {
+                        alert("檔案格式不正確，無法讀取星號資料。");
+                    }
+                } catch (err) {
+                    alert("JSON 解析失敗，請確認上傳的檔案無損壞。");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ""; // 重設以允許重複選取相同檔案
+        }
+
+        function clearAllStars() {
+            if (starredIds.size === 0) return;
+            if (confirm("確定要清除所有已標記的星號嗎？此操作將同時重置瀏覽器保存的進度。")) {
+                starredIds.clear();
+                saveStarredToStorage();
+                updateFlashcardUI();
+                renderListCards();
+            }
+        }
+
+        // ================= 模式切換與清單渲染 =================
+        function switchView(viewName) {
+            document.getElementById('flashcardView').classList.add('hidden');
+            document.getElementById('listView').classList.add('hidden');
+            document.getElementById('calculatorView').classList.add('hidden');
+
+            const btns = ['btn-flashcard', 'btn-list', 'btn-calculator'];
+            btns.forEach(b => {
+                document.getElementById(b).classList.remove('bg-sky-500', 'text-white');
+                document.getElementById(b).classList.add('bg-slate-800', 'text-slate-300');
+            });
+
+            if (viewName === 'flashcard') {
+                document.getElementById('flashcardView').classList.remove('hidden');
+                document.getElementById('btn-flashcard').classList.add('bg-sky-500', 'text-white');
+                document.getElementById('btn-flashcard').classList.remove('bg-slate-800', 'text-slate-300');
+                updateFlashcardUI();
+            } else if (viewName === 'list') {
+                document.getElementById('listView').classList.remove('hidden');
+                document.getElementById('btn-list').classList.add('bg-sky-500', 'text-white');
+                document.getElementById('btn-list').classList.remove('bg-slate-800', 'text-slate-300');
+                renderListCards();
+            } else if (viewName === 'calculator') {
+                document.getElementById('calculatorView').classList.remove('hidden');
+                document.getElementById('btn-calculator').classList.add('bg-sky-500', 'text-white');
+                document.getElementById('btn-calculator').classList.remove('bg-slate-800', 'text-slate-300');
+                runCalculator();
+            }
+        }
+
+        function renderListCards() {
+            const container = document.getElementById('listContainer');
+            const search = document.getElementById('listSearch').value.toLowerCase();
+            container.innerHTML = '';
+
+            const filtered = termsDatabase.filter(item => {
+                const matchStage = (activeListStage === 'all') || (item.stage === activeListStage);
+                const matchSearch = item.term.toLowerCase().includes(search) || 
+                                    item.full.toLowerCase().includes(search) ||
+                                    item.zh.toLowerCase().includes(search) ||
+                                    item.formula.toLowerCase().includes(search) ||
+                                    item.desc.toLowerCase().includes(search);
+                return matchStage && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-500 text-sm">無符合之專有名詞</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                const isStarred = starredIds.has(item.id);
+                card.className = "bg-cardbg border border-cardborder hover:border-slate-600 rounded-xl p-5 shadow flex flex-col justify-between";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <span class="text-xl font-bold text-sky-400 font-mono">${item.term}</span>
+                                <span class="text-xs text-slate-400 ml-2 font-sans font-medium">${item.zh}</span>
+                            </div>
+                            <button onclick="toggleStarInList(${item.id})" class="text-lg ${isStarred ? 'text-star' : 'text-slate-600'} hover:text-star transition">
+                                ${isStarred ? '★' : '☆'}
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3">${item.full}</p>
+                        <p class="text-xs md:text-sm text-slate-300 leading-relaxed mb-4">${item.desc}</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-800">
+                        <span class="text-xs font-semibold text-slate-400 block mb-1">公式：</span>
+                        <div class="bg-slate-950 p-2 rounded text-xs font-mono text-sky-300 border border-slate-800 break-words font-semibold">
+                            ${item.formula}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleStarInList(id) {
+            if (starredIds.has(id)) {
+                starredIds.delete(id);
+            } else {
+                starredIds.add(id);
+            }
+            saveStarredToStorage();
+            document.getElementById('starredCount').innerText = starredIds.size;
+            renderListCards();
+            updateFlashcardUI();
+        }
+
+        function filterStage(stage) {
+            activeListStage = stage;
+            const buttons = document.querySelectorAll('.stage-filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('bg-sky-500', 'text-white');
+                btn.classList.add('bg-cardbg', 'text-slate-300');
+            });
+            event.target.classList.add('bg-sky-500', 'text-white');
+            event.target.classList.remove('bg-cardbg', 'text-slate-300');
+            renderListCards();
+        }
+
+        // ================= 現金流試算器 =================
+        function runCalculator() {
+            const ebit = parseFloat(document.getElementById('calcEBIT').value) || 0;
+            const dep = parseFloat(document.getElementById('calcDep').value) || 0;
+            const tax = parseFloat(document.getElementById('calcTax').value) || 0;
+            const capex = parseFloat(document.getElementById('calcCapex').value) || 0;
+            const nwc = parseFloat(document.getElementById('calcNWC').value) || 0;
+
+            const intExp = parseFloat(document.getElementById('calcInt').value) || 0;
+            const debtNet = parseFloat(document.getElementById('calcDebt').value) || 0;
+            const div = parseFloat(document.getElementById('calcDiv').value) || 0;
+            const eq = parseFloat(document.getElementById('calcEq').value) || 0;
+
+            const ocf = ebit + dep - tax;
+            const cffa = ocf - capex - nwc;
+
+            const cfc = intExp - debtNet;
+            const cfs = div - eq;
+            const totalInvestors = cfc + cfs;
+
+            document.getElementById('resOCF').innerText = `$${ocf}`;
+            document.getElementById('resCFFA').innerText = `$${cffa}`;
+            document.getElementById('resCFC').innerText = `$${cfc}`;
+            document.getElementById('resCFS').innerText = `$${cfs}`;
+            document.getElementById('resInvestors').innerText = `$${totalInvestors}`;
+
+            const banner = document.getElementById('statusBanner');
+            const text = document.getElementById('statusText');
+
+            if (cffa === totalInvestors) {
+                banner.className = "mt-6 p-4 rounded-xl flex items-center justify-between border bg-emerald-950/40 border-emerald-500/50";
+                text.className = "font-bold text-emerald-400 text-sm";
+                text.innerText = `✅ 基本恆等式成立：CFFA ($${cffa}) = CFC + CFS ($${totalInvestors})`;
+            } else {
+                banner.className = "mt-6 p-4 rounded-xl flex items-center justify-between border bg-rose-950/40 border-rose-500/50";
+                text.className = "font-bold text-rose-400 text-sm";
+                text.innerText = `⚠️ 兩者不相等：CFFA ($${cffa}) ≠ CFC + CFS ($${totalInvestors})，請檢查輸入！`;
+            }
+        }
+
+        // 鍵盤操作監聽
+        document.addEventListener('keydown', function(event) {
+            if (document.getElementById('flashcardView').classList.contains('hidden')) return;
+            if (event.code === 'Space') {
+                event.preventDefault();
+                flipCard();
+            } else if (event.code === 'ArrowRight') {
+                nextCard();
+            } else if (event.code === 'ArrowLeft') {
+                prevCard();
+            }
+        });
+
+        // 初始化載入
+        window.onload = function() {
+            updateFlashcardUI();
+            runCalculator();
+        };
+    </script>
+</body>
+</html>
